@@ -30,7 +30,7 @@ class Config:
     google_sheets_json: Optional[str] = None
 
     # Gemini settings
-    GEMINI_MODEL: str = "gemini-1.5-flash"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
     GEMINI_TEMPERATURE: float = 0.7
     GEMINI_MAX_TOKENS: int = 2048
 
