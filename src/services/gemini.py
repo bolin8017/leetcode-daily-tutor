@@ -14,27 +14,36 @@ class GeminiService:
     """Service for interacting with Google Gemini API."""
 
     # Prompt template for solution generation
-    SOLUTION_PROMPT = """你是一位資深的演算法面試教練。請針對以下 LeetCode 題目，提供 C++ 標準面試解法。
+    SOLUTION_PROMPT = """你是一位資深的演算法面試教練。請針對以下 LeetCode 題目，提供完整的題目說明與 C++ 標準面試解法。
 
 題目名稱: {title}
 題目連結: {url}
 Rating: {rating}
 
-請提供以下內容（使用繁體中文回答）：
+請按照以下格式提供完整內容（使用繁體中文回答）：
 
-1. **解題思路**：簡述核心演算法與解題邏輯（2-3 句話）
-2. **C++ 程式碼**：提供乾淨、符合面試標準的完整程式碼
-3. **複雜度分析**：
-   - Time Complexity:
-   - Space Complexity:
+## 題目描述
+[請用 2-3 句話簡潔描述這道題目在問什麼，包含輸入輸出格式]
+
+## 解題思路
+[簡述核心演算法與解題邏輯，說明為什麼這樣解，2-4 句話]
+
+## C++ 程式碼
+```cpp
+[提供乾淨、符合面試標準的完整程式碼，包含必要註釋]
+```
+
+## 複雜度分析
+- **Time Complexity**: O(?)
+- **Space Complexity**: O(?)
 
 請確保程式碼：
-- 包含必要的註釋
-- 變數命名清晰
+- 包含清楚的註釋說明關鍵步驟
+- 變數命名清晰易懂
 - 符合 C++ 最佳實踐
 - 可以直接在 LeetCode 上執行
 
-請直接開始回答，不需要額外的開場白。"""
+請直接按照上述格式開始回答，使用 ## 作為章節標題。"""
 
     def __init__(self):
         """Initialize Gemini service."""
