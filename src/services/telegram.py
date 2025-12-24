@@ -173,7 +173,7 @@ class TelegramService:
         # Format solution with better HTML structure
         solution_formatted = self._format_solution_html(solution)
 
-        message = f"""📅 <b>LeetCode Daily Challenge - {today}</b>
+        message = f"""<b>LeetCode Daily Challenge - {today}</b>
 
 🏆 <b>題目</b>: {problem_info.get('title', 'Unknown')}
 ⭐ <b>Rating</b>: {problem_info.get('rating', 'N/A')}
@@ -184,7 +184,7 @@ class TelegramService:
 {solution_formatted}
 
 ━━━━━━━━━━━━━━━━
-💬 祝你練習順利！加油！🚀
+祝你練習順利！加油！
 """
         return message
 
