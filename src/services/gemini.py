@@ -4,7 +4,7 @@ Handles AI-powered solution generation.
 """
 
 from typing import Dict
-import google.generativeai as genai
+from google import genai
 
 from src.config import config
 from src.utils.logger import logger
@@ -39,19 +39,12 @@ Rating: {rating}
     def __init__(self):
         """Initialize Gemini service."""
         self._configure_api()
-        self.model = genai.GenerativeModel(
-            config.GEMINI_MODEL,
-            generation_config={
-                'temperature': config.GEMINI_TEMPERATURE,
-                'max_output_tokens': config.GEMINI_MAX_TOKENS,
-            }
-        )
         logger.info(f"Gemini service initialized with model: {config.GEMINI_MODEL}")
 
     def _configure_api(self):
         """Configure Gemini API with credentials."""
         try:
-            genai.configure(api_key=config.gemini_api_key)
+            self.client = genai.Client(api_key=config.gemini_api_key)
             logger.info("Gemini API configured successfully")
         except Exception as e:
             logger.error(f"Failed to configure Gemini API: {e}")
@@ -81,8 +74,15 @@ Rating: {rating}
                 rating=problem_info.get('rating', '0')
             )
 
-            # Generate content
-            response = self.model.generate_content(prompt)
+            # Generate content using new API
+            response = self.client.models.generate_content(
+                model=config.GEMINI_MODEL,
+                contents=prompt,
+                config={
+                    'temperature': config.GEMINI_TEMPERATURE,
+                    'max_output_tokens': config.GEMINI_MAX_TOKENS,
+                }
+            )
 
             if not response.text:
                 raise ValueError("Empty response from Gemini API")
@@ -131,7 +131,10 @@ Rating: {rating}
         """
         try:
             test_prompt = "Please respond with 'OK'"
-            response = self.model.generate_content(test_prompt)
+            response = self.client.models.generate_content(
+                model=config.GEMINI_MODEL,
+                contents=test_prompt
+            )
             return bool(response.text)
         except Exception as e:
             logger.error(f"Gemini API test failed: {e}")
