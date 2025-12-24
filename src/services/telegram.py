@@ -194,6 +194,7 @@ class TelegramService:
 
         - Wraps code blocks in <pre><code> tags
         - Converts **text** to <b>text</b>
+        - Converts *text* to <i>text</i>
         - Converts section headers to bold
         - Preserves structure while making it Telegram-friendly
 
@@ -214,25 +215,32 @@ class TelegramService:
             code_blocks.append(code_escaped)
             return f"<<<CODE_BLOCK_{len(code_blocks)-1}>>>"
 
-        # Match code blocks (```...```)
+        # Match code blocks (```cpp ... ``` or ```c++ ... ```)
         text = re.sub(r'```(?:cpp|c\+\+)?\n?(.*?)```', save_code_block, text, flags=re.DOTALL)
 
-        # Escape remaining HTML characters
+        # Escape remaining HTML characters (but preserve newlines and basic structure)
         text = text.replace('&', '&amp;')
         text = text.replace('<', '&lt;')
         text = text.replace('>', '&gt;')
 
-        # Convert **text** to <b>text</b>
-        text = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', text)
-
-        # Convert markdown headers ### to bold
+        # Convert markdown headers to bold (must be done before ** conversion)
         text = re.sub(r'^###\s+(.+)$', r'<b>\1</b>', text, flags=re.MULTILINE)
         text = re.sub(r'^##\s+(.+)$', r'<b>\1</b>', text, flags=re.MULTILINE)
         text = re.sub(r'^#\s+(.+)$', r'<b>\1</b>', text, flags=re.MULTILINE)
 
+        # Convert **text** to <b>text</b>
+        text = re.sub(r'\*\*([^*\n]+)\*\*', r'<b>\1</b>', text)
+
+        # Convert single *text* or _text_ to <i>text</i> (for italics)
+        text = re.sub(r'\*([^*\n]+)\*', r'<i>\1</i>', text)
+        text = re.sub(r'_([^_\n]+)_', r'<i>\1</i>', text)
+
+        # Convert backtick `code` to <code>code</code> for inline code
+        text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
+
         # Restore code blocks with proper formatting
         for i, code in enumerate(code_blocks):
-            text = text.replace(f"<<<CODE_BLOCK_{i}>>>", f"\n<pre><code class=\"language-cpp\">{code}</code></pre>\n")
+            text = text.replace(f"&lt;&lt;&lt;CODE_BLOCK_{i}&gt;&gt;&gt;", f"\n<pre><code class=\"language-cpp\">{code}</code></pre>\n")
 
         return text
 
