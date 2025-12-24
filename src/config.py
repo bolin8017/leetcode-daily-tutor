@@ -38,6 +38,20 @@ class Config:
     GEMINI_TEMPERATURE: float = 0.7
     GEMINI_MAX_TOKENS: int = 7500  # Safe limit (max is 8000)
 
+    # Telegram settings
+    TELEGRAM_MAX_MESSAGE_LENGTH: int = 4000  # Telegram limit is 4096, use 4000 for safety
+    TELEGRAM_REQUEST_TIMEOUT: int = 30  # Timeout for Telegram API requests (seconds)
+
+    # HTTP request settings
+    HTTP_REQUEST_TIMEOUT: int = 30  # Default timeout for HTTP requests (seconds)
+    HTTP_QUICK_TIMEOUT: int = 10  # Timeout for quick API checks (seconds)
+
+    # Google Sheets settings (worksheet dimensions)
+    SHEETS_SETTINGS_ROWS: int = 10
+    SHEETS_SETTINGS_COLS: int = 5
+    SHEETS_HISTORY_ROWS: int = 1000
+    SHEETS_HISTORY_COLS: int = 1
+
     # Logging settings
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

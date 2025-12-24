@@ -33,18 +33,16 @@ class TelegramService:
         Returns:
             True if message was sent successfully, False otherwise
         """
-        MAX_MESSAGE_LENGTH = 4000  # Telegram limit is 4096, use 4000 for safety
-
         try:
             logger.info("Sending message to Telegram...")
 
             # If message is short enough, send directly
-            if len(text) <= MAX_MESSAGE_LENGTH:
+            if len(text) <= config.TELEGRAM_MAX_MESSAGE_LENGTH:
                 return self._send_single_message(text, parse_mode)
 
             # Split long message into chunks
             logger.info(f"Message too long ({len(text)} chars), splitting...")
-            chunks = self._split_message(text, MAX_MESSAGE_LENGTH)
+            chunks = self._split_message(text, config.TELEGRAM_MAX_MESSAGE_LENGTH)
 
             for i, chunk in enumerate(chunks, 1):
                 logger.info(f"Sending chunk {i}/{len(chunks)}...")
@@ -79,7 +77,7 @@ class TelegramService:
                 "disable_web_page_preview": True
             }
 
-            response = requests.post(url, json=payload, timeout=30)
+            response = requests.post(url, json=payload, timeout=config.TELEGRAM_REQUEST_TIMEOUT)
             response.raise_for_status()
             return True
 
@@ -95,7 +93,7 @@ class TelegramService:
                         "text": text,
                         "disable_web_page_preview": True
                     }
-                    response = requests.post(url, json=payload_plain, timeout=30)
+                    response = requests.post(url, json=payload_plain, timeout=config.TELEGRAM_REQUEST_TIMEOUT)
                     response.raise_for_status()
                     logger.info("Message sent successfully without formatting")
                     return True
@@ -243,7 +241,7 @@ class TelegramService:
         """
         try:
             url = f"{self.api_url}/getMe"
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, timeout=config.HTTP_QUICK_TIMEOUT)
             response.raise_for_status()
 
             data = response.json()

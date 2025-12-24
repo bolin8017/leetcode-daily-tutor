@@ -30,7 +30,7 @@ class LeetCodeService:
         """
         try:
             logger.info("Fetching LeetCode problem ratings...")
-            response = requests.get(self.rating_url, timeout=30)
+            response = requests.get(self.rating_url, timeout=config.HTTP_REQUEST_TIMEOUT)
             response.raise_for_status()
 
             data = response.json()

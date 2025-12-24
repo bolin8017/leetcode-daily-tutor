@@ -164,8 +164,8 @@ class SheetsService:
                 logger.info("Creating Settings worksheet...")
                 settings = self.spreadsheet.add_worksheet(
                     title=config.SETTINGS_WORKSHEET,
-                    rows=10,
-                    cols=5
+                    rows=config.SHEETS_SETTINGS_ROWS,
+                    cols=config.SHEETS_SETTINGS_COLS
                 )
                 settings.update('A1:B1', [['Target_Rating', '1500']])
                 logger.info("Settings worksheet created with default rating 1500")
@@ -178,8 +178,8 @@ class SheetsService:
                 logger.info("Creating History worksheet...")
                 history = self.spreadsheet.add_worksheet(
                     title=config.HISTORY_WORKSHEET,
-                    rows=1000,
-                    cols=1
+                    rows=config.SHEETS_HISTORY_ROWS,
+                    cols=config.SHEETS_HISTORY_COLS
                 )
                 history.update('A1', [['Problem_ID']])
                 logger.info("History worksheet created")
