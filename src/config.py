@@ -7,6 +7,10 @@ import os
 import sys
 from typing import Optional
 from dataclasses import dataclass
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 @dataclass
@@ -32,7 +36,7 @@ class Config:
     # Gemini settings
     GEMINI_MODEL: str = "gemini-2.5-flash"
     GEMINI_TEMPERATURE: float = 0.7
-    GEMINI_MAX_TOKENS: int = 2048
+    GEMINI_MAX_TOKENS: int = 7500  # Safe limit (max is 8000)
 
     # Logging settings
     LOG_LEVEL: str = "INFO"

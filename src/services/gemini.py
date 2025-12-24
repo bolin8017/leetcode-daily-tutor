@@ -87,6 +87,13 @@ Rating: {rating}
             if not response.text:
                 raise ValueError("Empty response from Gemini API")
 
+            # Check if response was truncated
+            if hasattr(response, 'candidates') and response.candidates:
+                finish_reason = getattr(response.candidates[0], 'finish_reason', None)
+                if finish_reason and 'MAX_TOKENS' in str(finish_reason):
+                    logger.warning(f"⚠️ Response may be truncated (finish_reason: {finish_reason})")
+                    logger.warning(f"Response length: {len(response.text)} characters")
+
             logger.info("Solution generated successfully")
             return response.text
 
