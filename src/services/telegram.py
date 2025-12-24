@@ -170,8 +170,8 @@ class TelegramService:
         """
         today = datetime.now().strftime("%Y-%m-%d")
 
-        # Escape HTML special characters in solution
-        solution_escaped = self._escape_html(solution)
+        # Format solution with better HTML structure
+        solution_formatted = self._format_solution_html(solution)
 
         message = f"""📅 <b>LeetCode Daily Challenge - {today}</b>
 
@@ -181,27 +181,59 @@ class TelegramService:
 
 ━━━━━━━━━━━━━━━━
 
-{solution_escaped}
+{solution_formatted}
 
 ━━━━━━━━━━━━━━━━
 💬 祝你練習順利！加油！🚀
 """
         return message
 
-    def _escape_html(self, text: str) -> str:
+    def _format_solution_html(self, text: str) -> str:
         """
-        Escape HTML special characters but preserve <code> and <pre> tags.
+        Format solution text with proper HTML tags for better readability.
+
+        - Wraps code blocks in <pre><code> tags
+        - Converts **text** to <b>text</b>
+        - Converts section headers to bold
+        - Preserves structure while making it Telegram-friendly
 
         Args:
-            text: Text to escape
+            text: Solution text to format
 
         Returns:
-            HTML-safe text
+            HTML-formatted text
         """
-        # Simple HTML escape for basic characters
+        import re
+
+        # First, protect code blocks by replacing them with placeholders
+        code_blocks = []
+        def save_code_block(match):
+            code = match.group(1)
+            # Escape HTML in code
+            code_escaped = code.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            code_blocks.append(code_escaped)
+            return f"<<<CODE_BLOCK_{len(code_blocks)-1}>>>"
+
+        # Match code blocks (```...```)
+        text = re.sub(r'```(?:cpp|c\+\+)?\n?(.*?)```', save_code_block, text, flags=re.DOTALL)
+
+        # Escape remaining HTML characters
         text = text.replace('&', '&amp;')
         text = text.replace('<', '&lt;')
         text = text.replace('>', '&gt;')
+
+        # Convert **text** to <b>text</b>
+        text = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', text)
+
+        # Convert markdown headers ### to bold
+        text = re.sub(r'^###\s+(.+)$', r'<b>\1</b>', text, flags=re.MULTILINE)
+        text = re.sub(r'^##\s+(.+)$', r'<b>\1</b>', text, flags=re.MULTILINE)
+        text = re.sub(r'^#\s+(.+)$', r'<b>\1</b>', text, flags=re.MULTILINE)
+
+        # Restore code blocks with proper formatting
+        for i, code in enumerate(code_blocks):
+            text = text.replace(f"<<<CODE_BLOCK_{i}>>>", f"\n<pre><code class=\"language-cpp\">{code}</code></pre>\n")
+
         return text
 
     def test_connection(self) -> bool:
