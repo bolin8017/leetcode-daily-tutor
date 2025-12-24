@@ -1,0 +1,46 @@
+name: LeetCode Daily AI Tutor
+
+on:
+  schedule:
+    # 每天台北時間早上 9:00 執行 (UTC+8 = 01:00 UTC)
+    - cron: '0 1 * * *'
+
+  # 允許手動觸發
+  workflow_dispatch:
+
+jobs:
+  send-daily-problem:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run LeetCode Daily Tutor
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_SHEETS_JSON: ${{ secrets.GOOGLE_SHEETS_JSON }}
+        run: python main.py
+
+      - name: Report status
+        if: always()
+        run: |
+          if [ $? -eq 0 ]; then
+            echo "✅ Daily problem sent successfully!"
+          else
+            echo "❌ Failed to send daily problem"
+            exit 1
+          fi
