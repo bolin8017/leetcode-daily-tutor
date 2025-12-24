@@ -24,6 +24,7 @@ class TelegramService:
     def send_message(self, text: str, parse_mode: str = "Markdown") -> bool:
         """
         Send a message to the configured Telegram chat.
+        If message is too long (>4000 chars), split into multiple messages.
 
         Args:
             text: Message text to send
@@ -32,9 +33,44 @@ class TelegramService:
         Returns:
             True if message was sent successfully, False otherwise
         """
+        MAX_MESSAGE_LENGTH = 4000  # Telegram limit is 4096, use 4000 for safety
+
         try:
             logger.info("Sending message to Telegram...")
 
+            # If message is short enough, send directly
+            if len(text) <= MAX_MESSAGE_LENGTH:
+                return self._send_single_message(text, parse_mode)
+
+            # Split long message into chunks
+            logger.info(f"Message too long ({len(text)} chars), splitting...")
+            chunks = self._split_message(text, MAX_MESSAGE_LENGTH)
+
+            for i, chunk in enumerate(chunks, 1):
+                logger.info(f"Sending chunk {i}/{len(chunks)}...")
+                if not self._send_single_message(chunk, parse_mode):
+                    logger.error(f"Failed to send chunk {i}")
+                    return False
+
+            logger.info("All message chunks sent successfully")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to send Telegram message: {e}")
+            return False
+
+    def _send_single_message(self, text: str, parse_mode: str = "Markdown") -> bool:
+        """
+        Send a single message to Telegram.
+
+        Args:
+            text: Message text to send
+            parse_mode: Parse mode for formatting (Markdown or HTML)
+
+        Returns:
+            True if message was sent successfully
+        """
+        try:
             url = f"{self.api_url}/sendMessage"
             payload = {
                 "chat_id": self.chat_id,
@@ -45,13 +81,60 @@ class TelegramService:
 
             response = requests.post(url, json=payload, timeout=30)
             response.raise_for_status()
-
-            logger.info("Message sent successfully")
             return True
 
         except requests.RequestException as e:
-            logger.error(f"Failed to send Telegram message: {e}")
+            logger.error(f"Failed to send message: {e}")
             return False
+
+    def _split_message(self, text: str, max_length: int) -> list:
+        """
+        Split a long message into chunks at natural breakpoints.
+
+        Args:
+            text: The text to split
+            max_length: Maximum length per chunk
+
+        Returns:
+            List of text chunks
+        """
+        if len(text) <= max_length:
+            return [text]
+
+        chunks = []
+        current_chunk = ""
+
+        # Split by lines first
+        lines = text.split('\n')
+
+        for line in lines:
+            # If adding this line would exceed limit
+            if len(current_chunk) + len(line) + 1 > max_length:
+                if current_chunk:
+                    chunks.append(current_chunk.strip())
+                    current_chunk = ""
+
+                # If single line is too long, split it
+                if len(line) > max_length:
+                    # Split at word boundaries
+                    words = line.split(' ')
+                    for word in words:
+                        if len(current_chunk) + len(word) + 1 > max_length:
+                            if current_chunk:
+                                chunks.append(current_chunk.strip())
+                            current_chunk = word
+                        else:
+                            current_chunk += (' ' if current_chunk else '') + word
+                else:
+                    current_chunk = line
+            else:
+                current_chunk += ('\n' if current_chunk else '') + line
+
+        # Add remaining chunk
+        if current_chunk:
+            chunks.append(current_chunk.strip())
+
+        return chunks
 
     def format_daily_message(
         self,
