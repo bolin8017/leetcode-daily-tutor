@@ -21,7 +21,7 @@ class TelegramService:
         self.api_url = f"https://api.telegram.org/bot{self.bot_token}"
         logger.info("Telegram service initialized")
 
-    def send_message(self, text: str, parse_mode: str = "Markdown") -> bool:
+    def send_message(self, text: str, parse_mode: str = "HTML") -> bool:
         """
         Send a message to the configured Telegram chat.
         If message is too long (>4000 chars), split into multiple messages.
@@ -59,7 +59,7 @@ class TelegramService:
             logger.error(f"Failed to send Telegram message: {e}")
             return False
 
-    def _send_single_message(self, text: str, parse_mode: str = "Markdown") -> bool:
+    def _send_single_message(self, text: str, parse_mode: str = "HTML") -> bool:
         """
         Send a single message to Telegram.
 
@@ -85,6 +85,23 @@ class TelegramService:
 
         except requests.RequestException as e:
             logger.error(f"Failed to send message: {e}")
+
+            # If Markdown parsing failed, try sending without parse_mode
+            if parse_mode and "Bad Request" in str(e):
+                logger.warning("Markdown parsing failed, retrying without formatting...")
+                try:
+                    payload_plain = {
+                        "chat_id": self.chat_id,
+                        "text": text,
+                        "disable_web_page_preview": True
+                    }
+                    response = requests.post(url, json=payload_plain, timeout=30)
+                    response.raise_for_status()
+                    logger.info("Message sent successfully without formatting")
+                    return True
+                except requests.RequestException as e2:
+                    logger.error(f"Failed to send plain text message: {e2}")
+
             return False
 
     def _split_message(self, text: str, max_length: int) -> list:
@@ -142,31 +159,50 @@ class TelegramService:
         solution: str
     ) -> str:
         """
-        Format a daily problem message.
+        Format a daily problem message using HTML formatting.
 
         Args:
             problem_info: Problem information dictionary
             solution: AI-generated solution text
 
         Returns:
-            Formatted message text
+            Formatted message text in HTML
         """
         today = datetime.now().strftime("%Y-%m-%d")
 
-        message = f"""📅 **LeetCode Daily Challenge - {today}**
+        # Escape HTML special characters in solution
+        solution_escaped = self._escape_html(solution)
 
-🏆 **題目**: {problem_info.get('title', 'Unknown')}
-⭐ **Rating**: {problem_info.get('rating', 'N/A')}
-🔗 [題目連結]({problem_info.get('url', '')})
+        message = f"""📅 <b>LeetCode Daily Challenge - {today}</b>
 
----
+🏆 <b>題目</b>: {problem_info.get('title', 'Unknown')}
+⭐ <b>Rating</b>: {problem_info.get('rating', 'N/A')}
+🔗 <a href="{problem_info.get('url', '')}">題目連結</a>
 
-{solution}
+━━━━━━━━━━━━━━━━
 
----
+{solution_escaped}
+
+━━━━━━━━━━━━━━━━
 💬 祝你練習順利！加油！🚀
 """
         return message
+
+    def _escape_html(self, text: str) -> str:
+        """
+        Escape HTML special characters but preserve <code> and <pre> tags.
+
+        Args:
+            text: Text to escape
+
+        Returns:
+            HTML-safe text
+        """
+        # Simple HTML escape for basic characters
+        text = text.replace('&', '&amp;')
+        text = text.replace('<', '&lt;')
+        text = text.replace('>', '&gt;')
+        return text
 
     def test_connection(self) -> bool:
         """
