@@ -111,8 +111,8 @@ Rating: {rating}
                 model=config.GEMINI_MODEL,
                 contents=prompt,
                 config={
-                    'temperature': 0.3,  # Lower temperature for code
-                    'max_output_tokens': 2048,
+                    'temperature': config.GEMINI_TEMPERATURE,
+                    'max_output_tokens': config.GEMINI_MAX_TOKENS,
                 }
             )
 
@@ -120,6 +120,13 @@ Rating: {rating}
                 return "// Code generation failed"
 
             code = response.text.strip()
+
+            # Check if response was truncated
+            if hasattr(response, 'candidates') and response.candidates:
+                finish_reason = response.candidates[0].finish_reason
+                if finish_reason != 'STOP':
+                    logger.warning(f"Code generation may be incomplete. Finish reason: {finish_reason}")
+
             # Remove ``` markers if AI added them
             code = code.replace('```cpp', '').replace('```c++', '').replace('```', '').strip()
 
@@ -143,12 +150,18 @@ Rating: {rating}
                 contents=prompt,
                 config={
                     'temperature': config.GEMINI_TEMPERATURE,
-                    'max_output_tokens': 3000,
+                    'max_output_tokens': config.GEMINI_MAX_TOKENS,
                 }
             )
 
             if not response.text:
                 return "## 題目描述\n無法生成說明"
+
+            # Check if response was truncated
+            if hasattr(response, 'candidates') and response.candidates:
+                finish_reason = response.candidates[0].finish_reason
+                if finish_reason != 'STOP':
+                    logger.warning(f"Explanation may be incomplete. Finish reason: {finish_reason}")
 
             logger.info(f"Explanation generated: {len(response.text)} characters")
             return response.text.strip()
@@ -174,14 +187,6 @@ Rating: {rating}
 3. 思考可能的演算法（暴力法 → 優化）
 4. 實作並測試
 5. 分析時間與空間複雜度
-
-💡 常見演算法模式：
-- Two Pointers
-- Sliding Window
-- Hash Map
-- Binary Search
-- Dynamic Programming
-- DFS/BFS
 """
 
     def test_connection(self) -> bool:

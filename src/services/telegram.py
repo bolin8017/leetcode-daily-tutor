@@ -159,19 +159,19 @@ class TelegramService:
         solution: str
     ) -> str:
         """
-        Format a daily problem message using HTML formatting.
+        Format a daily problem message using HTML.
 
         Args:
             problem_info: Problem information dictionary
-            solution: AI-generated solution text
+            solution: AI-generated solution text (markdown format)
 
         Returns:
             Formatted message text in HTML
         """
         today = datetime.now().strftime("%Y-%m-%d")
 
-        # Format solution with better HTML structure
-        solution_formatted = self._format_solution_html(solution)
+        # Convert markdown solution to HTML-friendly format
+        solution_html = self._convert_markdown_to_html(solution)
 
         message = f"""<b>LeetCode Daily Challenge - {today}</b>
 
@@ -181,83 +181,56 @@ class TelegramService:
 
 ━━━━━━━━━━━━━━━━
 
-{solution_formatted}
+{solution_html}
 
 ━━━━━━━━━━━━━━━━
 祝你練習順利！加油！
 """
         return message
 
-    def _format_solution_html(self, text: str) -> str:
+    def _convert_markdown_to_html(self, text: str) -> str:
         """
-        Format solution text with proper HTML tags for better readability.
+        Convert markdown solution to HTML format for Telegram.
 
-        - Wraps code blocks in <pre><code> tags
-        - Converts **text** to <b>text</b>
-        - Converts *text* to <i>text</i>
-        - Converts section headers to bold
-        - Preserves structure while making it Telegram-friendly
+        Strategy: Extract code blocks first, convert the rest to HTML, then restore code blocks.
 
         Args:
-            text: Solution text to format
+            text: Markdown formatted text
 
         Returns:
-            HTML-formatted text
+            HTML formatted text
         """
         import re
 
-        # First, protect code blocks by replacing them with placeholders
+        # Step 1: Extract and protect code blocks
         code_blocks = []
-        def save_code_block(match):
-            code = match.group(1) if match.lastindex >= 1 else match.group(0)
-            # Escape HTML in code
-            code_escaped = code.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-            code_blocks.append(code_escaped)
-            return f"<<<CODE_BLOCK_{len(code_blocks)-1}>>>"
+        def extract_code_block(match):
+            code = match.group(1).strip()
+            # Don't escape HTML in code - keep it raw for <pre>
+            code_blocks.append(code)
+            return f"\n___CODE_BLOCK_{len(code_blocks)-1}___\n"
 
-        # Strategy 1: Try to match code blocks with language specifier
-        # Match: ```cpp, ```c++, ```C++, ```CPP (case insensitive)
-        text = re.sub(r'```(?:cpp|c\+\+|CPP)\s*\n?(.*?)```', save_code_block, text, flags=re.DOTALL | re.IGNORECASE)
+        # Extract code blocks (```cpp ... ``` or ``` ... ```)
+        text = re.sub(r'```(?:cpp|c\+\+)?\s*\n(.*?)\n```', extract_code_block, text, flags=re.DOTALL | re.IGNORECASE)
 
-        # Strategy 2: Match any ``` code blocks (even without language)
-        text = re.sub(r'```\s*\n?(.*?)```', save_code_block, text, flags=re.DOTALL)
+        # Step 2: Convert remaining markdown to HTML
+        # Escape HTML characters in non-code content
+        text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
-        # Strategy 3: If still no code blocks found, try to detect C++ code by heuristics
-        if len(code_blocks) == 0:
-            # Look for patterns like "class Solution", "vector<", "public:", etc.
-            # Try to find code section after "## C++ 程式碼" or similar headers
-            cpp_code_pattern = r'(?:##\s*C\+\+\s*程式碼|##\s*程式碼|C\+\+ Code)\s*\n+((?:.*?(?:class\s+Solution|vector<|public:|private:|int\s+\w+\(|void\s+\w+\().*?\n)+.*?)(?=\n##|\Z)'
-            cpp_match = re.search(cpp_code_pattern, text, re.DOTALL | re.MULTILINE)
-
-            if cpp_match:
-                code = cpp_match.group(1).strip()
-                code_escaped = code.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-                code_blocks.append(code_escaped)
-                text = text[:cpp_match.start(1)] + f"<<<CODE_BLOCK_0>>>" + text[cpp_match.end(1):]
-
-        # Escape remaining HTML characters (but preserve newlines and basic structure)
-        text = text.replace('&', '&amp;')
-        text = text.replace('<', '&lt;')
-        text = text.replace('>', '&gt;')
-
-        # Convert markdown headers to bold (must be done before ** conversion)
-        text = re.sub(r'^###\s+(.+)$', r'<b>\1</b>', text, flags=re.MULTILINE)
+        # Convert headers (##) to bold
         text = re.sub(r'^##\s+(.+)$', r'<b>\1</b>', text, flags=re.MULTILINE)
-        text = re.sub(r'^#\s+(.+)$', r'<b>\1</b>', text, flags=re.MULTILINE)
 
         # Convert **text** to <b>text</b>
-        text = re.sub(r'\*\*([^*\n]+)\*\*', r'<b>\1</b>', text)
+        text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
 
-        # Convert single *text* or _text_ to <i>text</i> (for italics)
-        text = re.sub(r'\*([^*\n]+)\*', r'<i>\1</i>', text)
-        text = re.sub(r'_([^_\n]+)_', r'<i>\1</i>', text)
+        # Convert inline `code` to <code>code</code>
+        text = re.sub(r'`(.+?)`', r'<code>\1</code>', text)
 
-        # Convert backtick `code` to <code>code</code> for inline code
-        text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
-
-        # Restore code blocks with proper formatting
+        # Step 3: Restore code blocks with <pre> tags
         for i, code in enumerate(code_blocks):
-            text = text.replace(f"&lt;&lt;&lt;CODE_BLOCK_{i}&gt;&gt;&gt;", f"\n<pre><code class=\"language-cpp\">{code}</code></pre>\n")
+            # Escape HTML in code content
+            code_escaped = code.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            text = text.replace(f"___CODE_BLOCK_{i}___", f"<pre>{code_escaped}</pre>")
 
         return text
 
