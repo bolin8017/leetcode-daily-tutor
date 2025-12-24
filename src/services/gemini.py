@@ -13,41 +13,36 @@ from src.utils.logger import logger
 class GeminiService:
     """Service for interacting with Google Gemini API."""
 
-    # Prompt template for solution generation
-    SOLUTION_PROMPT = """你是一位資深的演算法面試教練。請針對以下 LeetCode 題目，提供完整的題目說明與 C++ 標準面試解法。
+    # Prompt for code generation (first call)
+    CODE_PROMPT = """請為以下 LeetCode 題目提供 C++ 解法程式碼。
 
 題目名稱: {title}
 題目連結: {url}
+
+只需要提供完整的 C++ 程式碼，不需要任何說明。
+程式碼必須可以直接在 LeetCode 上執行。
+
+直接輸出程式碼，不要加任何其他文字："""
+
+    # Prompt for explanation generation (second call)
+    EXPLANATION_PROMPT = """你是一位資深的演算法面試教練。請針對以下 LeetCode 題目提供解題分析。
+
+題目名稱: {title}
 Rating: {rating}
 
-請嚴格按照以下格式提供內容（使用繁體中文回答）：
+請按照以下格式提供內容（使用繁體中文）：
 
 ## 題目描述
 [用 2-3 句話簡潔描述這道題目在問什麼，包含輸入輸出格式]
 
 ## 解題思路
-[簡述核心演算法與解題邏輯，說明為什麼這樣解，2-4 句話]
-
-## C++ 程式碼
-```cpp
-// 完整的 C++ 程式碼
-class Solution {{
-public:
-    // 你的解法
-}};
-```
+[簡述核心演算法與解題邏輯，2-3 句話]
 
 ## 複雜度分析
 - **Time Complexity**: O(?)
 - **Space Complexity**: O(?)
 
-重要提醒：
-1. 程式碼區塊必須以 ```cpp 開頭，以 ``` 結尾
-2. 不要使用其他程式碼標記或格式
-3. 章節標題使用 ## 格式
-4. 保持簡潔專業，避免冗長說明
-
-請立即開始，直接從「## 題目描述」開始回答。"""
+請直接開始，使用 ## 作為章節標題。保持簡潔專業。"""
 
     def __init__(self):
         """Initialize Gemini service."""
@@ -65,14 +60,17 @@ public:
 
     def generate_solution(self, problem_info: Dict[str, str]) -> str:
         """
-        Generate C++ solution for a LeetCode problem.
+        Generate complete solution by calling AI twice:
+        1. Get C++ code
+        2. Get explanation and analysis
+        Then combine them into a formatted response.
 
         Args:
             problem_info: Dictionary containing problem information
                          (title, url, rating)
 
         Returns:
-            Generated solution text
+            Complete solution text with code and explanation
 
         Raises:
             Exception: If API call fails
@@ -80,40 +78,84 @@ public:
         try:
             logger.info(f"Generating solution for: {problem_info.get('title')}")
 
-            # Format prompt
-            prompt = self.SOLUTION_PROMPT.format(
+            # Step 1: Generate C++ code
+            code = self._generate_code(problem_info)
+
+            # Step 2: Generate explanation
+            explanation = self._generate_explanation(problem_info)
+
+            # Step 3: Combine them
+            combined = f"""{explanation}
+
+## C++ 程式碼
+```cpp
+{code}
+```"""
+
+            logger.info("Solution generated successfully")
+            return combined
+
+        except Exception as e:
+            logger.error(f"Failed to generate solution: {e}")
+            return self._get_fallback_message()
+
+    def _generate_code(self, problem_info: Dict[str, str]) -> str:
+        """Generate C++ code only."""
+        try:
+            prompt = self.CODE_PROMPT.format(
                 title=problem_info.get('title', 'Unknown'),
-                url=problem_info.get('url', ''),
+                url=problem_info.get('url', '')
+            )
+
+            response = self.client.models.generate_content(
+                model=config.GEMINI_MODEL,
+                contents=prompt,
+                config={
+                    'temperature': 0.3,  # Lower temperature for code
+                    'max_output_tokens': 2048,
+                }
+            )
+
+            if not response.text:
+                return "// Code generation failed"
+
+            code = response.text.strip()
+            # Remove ``` markers if AI added them
+            code = code.replace('```cpp', '').replace('```c++', '').replace('```', '').strip()
+
+            logger.info(f"Code generated: {len(code)} characters")
+            return code
+
+        except Exception as e:
+            logger.error(f"Code generation failed: {e}")
+            return "// Code generation failed"
+
+    def _generate_explanation(self, problem_info: Dict[str, str]) -> str:
+        """Generate problem explanation and analysis."""
+        try:
+            prompt = self.EXPLANATION_PROMPT.format(
+                title=problem_info.get('title', 'Unknown'),
                 rating=problem_info.get('rating', '0')
             )
 
-            # Generate content using new API
             response = self.client.models.generate_content(
                 model=config.GEMINI_MODEL,
                 contents=prompt,
                 config={
                     'temperature': config.GEMINI_TEMPERATURE,
-                    'max_output_tokens': config.GEMINI_MAX_TOKENS,
+                    'max_output_tokens': 3000,
                 }
             )
 
             if not response.text:
-                raise ValueError("Empty response from Gemini API")
+                return "## 題目描述\n無法生成說明"
 
-            # Check if response was truncated
-            if hasattr(response, 'candidates') and response.candidates:
-                finish_reason = getattr(response.candidates[0], 'finish_reason', None)
-                if finish_reason and 'MAX_TOKENS' in str(finish_reason):
-                    logger.warning(f"⚠️ Response may be truncated (finish_reason: {finish_reason})")
-                    logger.warning(f"Response length: {len(response.text)} characters")
-
-            logger.info("Solution generated successfully")
-            return response.text
+            logger.info(f"Explanation generated: {len(response.text)} characters")
+            return response.text.strip()
 
         except Exception as e:
-            logger.error(f"Failed to generate solution: {e}")
-            # Return fallback message
-            return self._get_fallback_message()
+            logger.error(f"Explanation generation failed: {e}")
+            return "## 題目描述\n無法生成說明"
 
     def _get_fallback_message(self) -> str:
         """
