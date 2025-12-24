@@ -209,14 +209,31 @@ class TelegramService:
         # First, protect code blocks by replacing them with placeholders
         code_blocks = []
         def save_code_block(match):
-            code = match.group(1)
+            code = match.group(1) if match.lastindex >= 1 else match.group(0)
             # Escape HTML in code
             code_escaped = code.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
             code_blocks.append(code_escaped)
             return f"<<<CODE_BLOCK_{len(code_blocks)-1}>>>"
 
-        # Match code blocks (```cpp ... ``` or ```c++ ... ```)
-        text = re.sub(r'```(?:cpp|c\+\+)?\n?(.*?)```', save_code_block, text, flags=re.DOTALL)
+        # Strategy 1: Try to match code blocks with language specifier
+        # Match: ```cpp, ```c++, ```C++, ```CPP (case insensitive)
+        text = re.sub(r'```(?:cpp|c\+\+|CPP)\s*\n?(.*?)```', save_code_block, text, flags=re.DOTALL | re.IGNORECASE)
+
+        # Strategy 2: Match any ``` code blocks (even without language)
+        text = re.sub(r'```\s*\n?(.*?)```', save_code_block, text, flags=re.DOTALL)
+
+        # Strategy 3: If still no code blocks found, try to detect C++ code by heuristics
+        if len(code_blocks) == 0:
+            # Look for patterns like "class Solution", "vector<", "public:", etc.
+            # Try to find code section after "## C++ 程式碼" or similar headers
+            cpp_code_pattern = r'(?:##\s*C\+\+\s*程式碼|##\s*程式碼|C\+\+ Code)\s*\n+((?:.*?(?:class\s+Solution|vector<|public:|private:|int\s+\w+\(|void\s+\w+\().*?\n)+.*?)(?=\n##|\Z)'
+            cpp_match = re.search(cpp_code_pattern, text, re.DOTALL | re.MULTILINE)
+
+            if cpp_match:
+                code = cpp_match.group(1).strip()
+                code_escaped = code.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                code_blocks.append(code_escaped)
+                text = text[:cpp_match.start(1)] + f"<<<CODE_BLOCK_0>>>" + text[cpp_match.end(1):]
 
         # Escape remaining HTML characters (but preserve newlines and basic structure)
         text = text.replace('&', '&amp;')
